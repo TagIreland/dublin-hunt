@@ -1,0 +1,33 @@
+{
+  "rules": {
+    "dublin-hunt": {
+      "game": {
+        ".read": true,
+        ".write": true
+      },
+      "teams": {
+        ".read": true,
+        "$teamNum": {
+          ".write": true,
+          ".validate": "$teamNum.matches(/^([1-9]|1[0-2])$/)",
+          "joined": { ".validate": "newData.isBoolean()" },
+          "pendingApproval": { ".validate": "newData.isBoolean()" },
+          "currentStep": {
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 12 && (!data.exists() || newData.val() <= data.val() + 1)"
+          },
+          "startedAt": { ".validate": "newData.isNumber()" },
+          "submittedAt": { ".validate": "newData.isNumber()" },
+          "lastApproved": { ".validate": "newData.isNumber()" },
+          "photos": {
+            "$step": {
+              "data": {
+                ".validate": "newData.isString() && newData.val().length <= 400000"
+              },
+              "submittedAt": { ".validate": "newData.isNumber()" }
+            }
+          }
+        }
+      }
+    }
+  }
+}

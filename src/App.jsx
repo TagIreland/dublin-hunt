@@ -188,7 +188,7 @@ const T = {
 
 // ── Splash ────────────────────────────────────────────────────
 
-function Splash({ onAdmin, onTeam }) {
+function Splash({ onAdmin, onTeam, onResume, teamNum }) {
   return (
     <div style={S.splash}>
       <div style={S.splashInner}>
@@ -211,9 +211,15 @@ function Splash({ onAdmin, onTeam }) {
           Ending at {END_PUB.name} {END_PUB.emoji}
         </p>
         <div style={{ marginTop: 36, display: "flex", flexDirection: "column", gap: 14, width: "100%" }}>
-          <button style={S.btnPrimary} onClick={onTeam}>
-            <span style={{ fontSize: 22 }}>🏃</span> Join as a Team
-          </button>
+          {teamNum ? (
+            <button style={S.btnPrimary} onClick={onResume}>
+              <span style={{ fontSize: 22 }}>🎯</span> Resume as Team {teamNum}
+            </button>
+          ) : (
+            <button style={S.btnPrimary} onClick={onTeam}>
+              <span style={{ fontSize: 22 }}>🏃</span> Join as a Team
+            </button>
+          )}
           <button style={S.btnOutline} onClick={onAdmin}>
             <span style={{ fontSize: 18 }}>⚙️</span> Admin Dashboard
           </button>
@@ -560,10 +566,12 @@ function TeamSelect({ onSelect, onBack }) {
           return (
             <button
               key={num}
+              disabled={taken}
               style={{
                 ...S.teamSelectBtn,
                 borderColor: TEAM_COLORS[num - 1],
                 opacity: taken ? 0.5 : 1,
+                cursor: taken ? "not-allowed" : "pointer",
               }}
               onClick={() => onSelect(num)}
             >
@@ -596,9 +604,9 @@ function TeamGame({ teamNum, onBack }) {
   const [teamData, setTeamData] = useState(null);
   const [photo, setPhoto] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [processingPhoto, setProcessingPhoto] = useState(false);
   const [showHint, setShowHint] = useState(false);
   const [celebration, setCelebration] = useState(false);
-  const prevStepRef = useRef(null);
   const fileRef = useRef();
   const route = getTeamRoute(teamNum);
 
@@ -653,11 +661,16 @@ function TeamGame({ teamNum, onBack }) {
   const handlePhoto = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
+    setProcessingPhoto(true);
     try {
       const compressed = await compressImage(file);
       setPhoto(compressed);
     } catch (err) {
       console.error("Failed to process photo:", err);
+      alert("Couldn't process that photo. Try again.");
+    } finally {
+      setProcessingPhoto(false);
+      if (fileRef.current) fileRef.current.value = "";
     }
   };
 
@@ -718,7 +731,7 @@ function TeamGame({ teamNum, onBack }) {
     return (
       <div style={S.page}>
         <button style={S.backBtn} onClick={onBack}>
-          ← Leave
+          ← Home
         </button>
         <div style={{ ...S.splashInner, marginTop: 60 }}>
           <div style={{ fontSize: 60, marginBottom: 16 }}>⏳</div>
@@ -816,7 +829,7 @@ function TeamGame({ teamNum, onBack }) {
         }}
       >
         <button style={S.backBtn} onClick={onBack}>
-          ← Leave
+          ← Home
         </button>
         <span
           style={{
@@ -919,7 +932,12 @@ function TeamGame({ teamNum, onBack }) {
               Take a team selfie at the location to unlock the next clue
             </p>
 
-            {photo ? (
+            {processingPhoto ? (
+              <div style={{ ...S.cameraBtn, cursor: "default" }}>
+                <span style={{ fontSize: 36 }}>⏳</span>
+                <span>Processing photo…</span>
+              </div>
+            ) : photo ? (
               <div style={{ marginTop: 12 }}>
                 <img src={photo} alt="Selfie" style={S.previewImg} />
                 <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
@@ -982,8 +1000,24 @@ function TeamGame({ teamNum, onBack }) {
    ══════════════════════════════════════════════════════════════ */
 
 export default function App() {
-  const [view, setView] = useState("splash");
-  const [teamNum, setTeamNum] = useState(null);
+  const [teamNum, setTeamNum] = useState(() => {
+    try {
+      const stored = localStorage.getItem("dh-team");
+      return stored ? Number(stored) : null;
+    } catch {
+      return null;
+    }
+  });
+  const [view, setView] = useState(teamNum ? "team-game" : "splash");
+
+  useEffect(() => {
+    try {
+      if (teamNum) localStorage.setItem("dh-team", String(teamNum));
+      else localStorage.removeItem("dh-team");
+    } catch {
+      // ignore — localStorage may be disabled
+    }
+  }, [teamNum]);
 
   return (
     <div style={S.root}>
@@ -993,6 +1027,8 @@ export default function App() {
         <Splash
           onAdmin={() => setView("admin-login")}
           onTeam={() => setView("team-select")}
+          onResume={() => setView("team-game")}
+          teamNum={teamNum}
         />
       )}
       {view === "admin-login" && (
@@ -1016,10 +1052,7 @@ export default function App() {
       {view === "team-game" && teamNum && (
         <TeamGame
           teamNum={teamNum}
-          onBack={() => {
-            setTeamNum(null);
-            setView("splash");
-          }}
+          onBack={() => setView("splash")}
         />
       )}
     </div>
@@ -1031,8 +1064,6 @@ export default function App() {
    ══════════════════════════════════════════════════════════════ */
 
 const cssReset = `
-  @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@700;900&family=Cinzel:wght@400;600;700&family=Nunito:wght@400;600;700;800&display=swap');
-
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: ${T.bg}; }
 
