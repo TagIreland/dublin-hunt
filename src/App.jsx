@@ -2,6 +2,44 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { dbGet, dbSet, dbRemove, dbListen } from "./firebase.js";
 
 /* ══════════════════════════════════════════════════════════════
+   IMAGE HELPERS
+   ══════════════════════════════════════════════════════════════ */
+
+async function compressImage(file, maxWidth = 800, quality = 0.7) {
+  const dataUrl = await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => resolve(e.target.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  const img = await new Promise((resolve, reject) => {
+    const im = new Image();
+    im.onload = () => resolve(im);
+    im.onerror = reject;
+    im.src = dataUrl;
+  });
+  const scale = Math.min(1, maxWidth / img.width);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(img.width * scale);
+  canvas.height = Math.round(img.height * scale);
+  canvas.getContext("2d").drawImage(img, 0, 0, canvas.width, canvas.height);
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
+function triggerDownload(dataUrl, filename) {
+  const a = document.createElement("a");
+  a.href = dataUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+function safeName(s) {
+  return s.replace(/[^a-z0-9]/gi, "-").toLowerCase();
+}
+
+/* ══════════════════════════════════════════════════════════════
    DATA
    ══════════════════════════════════════════════════════════════ */
 
@@ -284,6 +322,33 @@ function AdminDashboard({ onBack }) {
     await dbSet("game", { ...game, started: false });
   };
 
+  const downloadAllPhotos = async () => {
+    const items = [];
+    Object.entries(teams).forEach(([num, td]) => {
+      if (!td.photos) return;
+      const route = getTeamRoute(Number(num));
+      Object.entries(td.photos).forEach(([step, photo]) => {
+        const locIdx = route[Number(step)];
+        const loc = LOCATIONS[locIdx];
+        const filename = `team-${num}-step-${Number(step) + 1}-${safeName(loc.name)}.jpg`;
+        items.push({ filename, data: photo.data });
+      });
+    });
+    if (items.length === 0) {
+      alert("No photos submitted yet.");
+      return;
+    }
+    for (const { filename, data } of items) {
+      triggerDownload(data, filename);
+      await new Promise((r) => setTimeout(r, 150));
+    }
+  };
+
+  const totalPhotos = Object.values(teams).reduce(
+    (sum, td) => sum + Object.keys(td.photos || {}).length,
+    0
+  );
+
   if (!game) {
     return (
       <div style={S.page}>
@@ -320,6 +385,13 @@ function AdminDashboard({ onBack }) {
             onClick={resetGame}
           >
             🔄 Reset All
+          </button>
+          <button
+            style={S.btnOutline}
+            onClick={downloadAllPhotos}
+            disabled={totalPhotos === 0}
+          >
+            📥 Download Photos ({totalPhotos})
           </button>
         </div>
         <p style={S.cardTextSmall}>
@@ -412,6 +484,8 @@ function AdminDashboard({ onBack }) {
             pendingTeams.map(([num, td]) => {
               const route = getTeamRoute(Number(num));
               const loc = LOCATIONS[route[td.currentStep]];
+              const photo = td.photos?.[td.currentStep]?.data;
+              const filename = `team-${num}-step-${td.currentStep + 1}-${safeName(loc.name)}.jpg`;
               return (
                 <div
                   key={num}
@@ -429,6 +503,21 @@ function AdminDashboard({ onBack }) {
                       {loc.emoji} {loc.name}
                     </strong>
                   </p>
+                  {photo ? (
+                    <>
+                      <img src={photo} alt="Team selfie" style={S.adminPhoto} />
+                      <button
+                        style={{ ...S.btnOutline, marginTop: 8 }}
+                        onClick={() => triggerDownload(photo, filename)}
+                      >
+                        📥 Download Photo
+                      </button>
+                    </>
+                  ) : (
+                    <p style={{ ...S.cardTextSmall, color: T.redLight }}>
+                      ⚠️ No photo attached
+                    </p>
+                  )}
                   <p style={S.cardTextSmall}>
                     Submitted: {new Date(td.submittedAt).toLocaleTimeString()}
                   </p>
@@ -561,12 +650,15 @@ function TeamGame({ teamNum, onBack }) {
     };
   }, [teamNum]);
 
-  const handlePhoto = (e) => {
+  const handlePhoto = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (ev) => setPhoto(ev.target.result);
-    reader.readAsDataURL(file);
+    try {
+      const compressed = await compressImage(file);
+      setPhoto(compressed);
+    } catch (err) {
+      console.error("Failed to process photo:", err);
+    }
   };
 
   const handleSubmit = async () => {
@@ -574,22 +666,35 @@ function TeamGame({ teamNum, onBack }) {
     setSubmitting(true);
 
     const isAuto = game?.mode === "auto";
+    const stepKey = teamData.currentStep;
     const newData = {
       ...teamData,
       pendingApproval: !isAuto,
       submittedAt: Date.now(),
+      photos: {
+        ...(teamData.photos || {}),
+        [stepKey]: {
+          data: photo,
+          submittedAt: Date.now(),
+        },
+      },
       ...(isAuto
         ? { currentStep: teamData.currentStep + 1, lastApproved: Date.now() }
         : {}),
     };
-    await dbSet(`teams/${teamNum}`, newData);
-    setPhoto(null);
-    setShowHint(false);
-    setSubmitting(false);
-
-    if (isAuto) {
-      setCelebration(true);
-      setTimeout(() => setCelebration(false), 2500);
+    try {
+      await dbSet(`teams/${teamNum}`, newData);
+      setPhoto(null);
+      setShowHint(false);
+      if (isAuto) {
+        setCelebration(true);
+        setTimeout(() => setCelebration(false), 2500);
+      }
+    } catch (err) {
+      console.error("Failed to submit:", err);
+      alert("Submission failed. Check your connection and try again.");
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -1258,6 +1363,15 @@ const S = {
     objectFit: "cover",
     borderRadius: 12,
     border: `2px solid ${T.border}`,
+  },
+  adminPhoto: {
+    width: "100%",
+    maxHeight: 260,
+    objectFit: "cover",
+    borderRadius: 10,
+    border: `2px solid ${T.border}`,
+    marginTop: 8,
+    display: "block",
   },
 
   // Journey items
