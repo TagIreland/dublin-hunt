@@ -27,10 +27,26 @@ Everything you need to get the app live and on everyone's phones.
 1. In the Firebase console sidebar, click **Build → Realtime Database**
 2. Click **"Create Database"**
 3. Choose a location — pick **europe-west1 (Belgium)** since you're in Dublin
-4. Start in **test mode** (this lets everyone read/write — fine for a one-off event)
+4. Start in **locked mode** (we'll paste in proper rules in the next step)
 5. Click **Enable**
 
-> **Note:** Test mode expires after 30 days. For a one-day event this is perfect.
+---
+
+## Step 2b: Lock Down the Database Rules
+
+The repo ships a hardened ruleset in [`database.rules.json`](database.rules.json). **Do not leave the database in open "test mode"** — anyone who finds your database URL could otherwise read every team's photos or wipe the game.
+
+1. In the Realtime Database, click the **Rules** tab
+2. Delete what's there and paste in the entire contents of `database.rules.json`
+3. Click **Publish**
+
+These rules:
+- Block all access outside the app's own `dublin-hunt` data
+- Validate the shape/size of everything written (team numbers 1–12, capped photo sizes, no junk fields)
+- Only allow a team's progress to move forward one step at a time
+- Make the admin PIN **write-once**, so a stranger can't change it and lock you out
+
+> **Important limitation:** This app has no login system — the admin PIN is checked in the browser, so the rules **cannot** stop a determined person from reading the PIN or writing data. For a one-day, share-the-link event that's an acceptable trade-off. If you need real protection, see **Securing the database further** at the end of this guide.
 
 ---
 
@@ -204,12 +220,20 @@ Run `vercel --prod` to redeploy, or push to GitHub and Vercel auto-deploys.
 
 | Problem | Fix |
 |---|---|
-| "Permission denied" in Firebase | Check Realtime Database rules are in test mode |
+| "Permission denied" in Firebase | Make sure you published the rules from `database.rules.json` (Step 2b) and didn't leave the DB in locked mode |
 | App loads but nothing syncs | Check your `VITE_FIREBASE_DATABASE_URL` is correct and includes the full URL |
 | Camera doesn't open on phone | Make sure the site is served over HTTPS (Vercel does this automatically) |
 | Changes not showing after deploy | Check environment variables are set on Vercel, then redeploy |
 
 ---
+
+## Securing the database further (optional)
+
+The rules in `database.rules.json` are as tight as they can be *without a login system*. Because the admin PIN is verified in the browser, the rules can't truly tell an admin apart from a player or a stranger. If you want real security (e.g. for a longer-running or higher-stakes event):
+
+1. **Turn on Firebase App Check** (reCAPTCHA v3 for web). This is the single biggest win — it blocks requests that don't come from *your* deployed app, so random scripts hitting the database URL are rejected. Requires a small change to `src/firebase.js` to initialise App Check.
+2. **Add Firebase Authentication** (even Anonymous Auth) and tighten the rules to `auth != null`, with a separate admin claim so only the admin can write to `game` or reset teams.
+3. **Move the PIN check server-side** (Cloud Function or Auth custom claims) so it's never sent to the browser at all.
 
 ## After the Event
 

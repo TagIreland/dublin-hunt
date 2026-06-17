@@ -238,8 +238,13 @@ function AdminLogin({ onLogin, onBack }) {
   const handleLogin = async () => {
     const game = await dbGet("game");
     if (!game) {
-      // First time — set the PIN
-      await dbSet("game", { started: false, mode: "auto", pin: pin || "6767" });
+      // First time — set the PIN (must match the 4–6 digit rule in database.rules.json)
+      const newPin = pin || "6767";
+      if (!/^[0-9]{4,6}$/.test(newPin)) {
+        setError("PIN must be 4–6 digits.");
+        return;
+      }
+      await dbSet("game", { started: false, mode: "auto", pin: newPin });
       onLogin();
     } else if (game.pin === pin) {
       onLogin();
