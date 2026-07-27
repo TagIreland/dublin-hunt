@@ -562,9 +562,17 @@ function sortedMembers(members) {
 // Finished teams first — ordered by finish time (1st, 2nd, …) — then the rest
 // by progress.
 function rankEntries(entries) {
-  const finished = entries.filter((r) => r.finishedAt).sort((a, b) => a.finishedAt - b.finishedAt);
+  // A team is done once it's reached the last step — even if an older/edge
+  // record is missing its finish timestamp.
+  const isDone = (r) => !!r.finishedAt || r.step >= r.total;
+  const finished = entries.filter(isDone).sort((a, b) => {
+    if (a.finishedAt && b.finishedAt) return a.finishedAt - b.finishedAt;
+    if (a.finishedAt) return -1; // timed finishes rank ahead of untimed ones
+    if (b.finishedAt) return 1;
+    return a.teamNum - b.teamNum;
+  });
   const hunting = entries
-    .filter((r) => !r.finishedAt)
+    .filter((r) => !isDone(r))
     .sort((a, b) => b.step - a.step || a.teamNum - b.teamNum);
   finished.forEach((r, i) => (r.rank = i + 1));
   return { rows: [...finished, ...hunting], finishedCount: finished.length };
@@ -1823,11 +1831,11 @@ function TeamGame({ teamNum, onBack }) {
           {/* Photo */}
           <div style={S.card}>
             <h3 style={S.cardSubtitle}>
-              {isFinalStep ? "📸 Photo Outside O'Donoghue's!" : "📸 Prove You're There!"}
+              {isFinalStep ? "📸 One Last Photo!" : "📸 Prove You're There!"}
             </h3>
             <p style={S.cardTextSmall}>
               {isFinalStep
-                ? "Take one last team photo outside the pub to finish the hunt."
+                ? "Worked out the final clue? Take one last team photo outside the door to finish the hunt."
                 : "Take a team photo at the location to unlock the next clue."}
             </p>
             <div style={S.disclaimer}>
@@ -1959,24 +1967,17 @@ function Leaderboard({ rows, meTeam, startedAt }) {
     <div>
       {rows.map((r) => {
         const me = r.teamNum === meTeam;
-        const finished = !!r.finishedAt;
-        const time = finished && startedAt ? fmtDuration(r.finishedAt - startedAt) : null;
+        const finished = r.rank != null;
+        const time = finished && r.finishedAt && startedAt ? fmtDuration(r.finishedAt - startedAt) : null;
         return (
           <div key={r.teamNum} style={{ ...S.lbRow, ...(me ? S.lbRowMe : {}) }}>
             <span style={S.lbRank}>{finished ? medal(r.rank) : "🏃"}</span>
-            <span
-              style={{ ...S.badge, backgroundColor: TEAM_COLORS[r.teamNum - 1], width: 24, height: 24, fontSize: 12 }}
-            >
-              {r.teamNum}
-            </span>
             <span style={S.lbName}>
               {TEAM_NAMES[r.teamNum - 1]}
               {me ? " (you)" : ""}
             </span>
             <span style={{ ...S.lbStatus, color: finished ? T.goldLight : T.text2 }}>
-              {finished
-                ? `${ordinal(r.rank)}${time ? ` · ${time}` : ""}`
-                : `on the hunt · ${r.step}/${r.total}`}
+              {finished ? `${ordinal(r.rank)}${time ? ` · ${time}` : ""}` : `${r.step}/${r.total}`}
             </span>
           </div>
         );
