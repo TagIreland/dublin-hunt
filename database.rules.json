@@ -43,6 +43,13 @@
           "submittedAt": { ".validate": "newData.isNumber()" },
           "lastApproved": { ".validate": "newData.isNumber()" },
           "finishedAt": { ".validate": "newData.isNumber()" },
+          "rejection": {
+            ".validate": "newData.hasChildren(['message'])",
+            "step": { ".validate": "newData.isNumber()" },
+            "message": { ".validate": "newData.isString() && newData.val().length <= 500" },
+            "at": { ".validate": "newData.isNumber()" },
+            "$other": { ".validate": false }
+          },
           "photos": {
             "$step": {
               ".validate": "$step.matches(/^([0-9]|1[0-2])$/)",

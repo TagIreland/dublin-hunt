@@ -558,8 +558,22 @@ function sortedMembers(members) {
    Finished teams rank by finish time; the rest sort by progress.
    ══════════════════════════════════════════════════════════════ */
 
-function leaderboard(standings) {
-  const rows = Object.entries(standings || {})
+// Rank a set of normalised entries ({ teamNum, step, finishedAt, total }).
+// Finished teams first — ordered by finish time (1st, 2nd, …) — then the rest
+// by progress.
+function rankEntries(entries) {
+  const finished = entries.filter((r) => r.finishedAt).sort((a, b) => a.finishedAt - b.finishedAt);
+  const hunting = entries
+    .filter((r) => !r.finishedAt)
+    .sort((a, b) => b.step - a.step || a.teamNum - b.teamNum);
+  finished.forEach((r, i) => (r.rank = i + 1));
+  return { rows: [...finished, ...hunting], finishedCount: finished.length };
+}
+
+// Lightweight board source for hunter phones (built from `standings`, so no
+// one downloads everyone's photos).
+function standingsEntries(standings) {
+  return Object.entries(standings || {})
     .filter(([num]) => ROUTES[num])
     .map(([num, s]) => ({
       teamNum: Number(num),
@@ -567,14 +581,18 @@ function leaderboard(standings) {
       finishedAt: s.finishedAt || null,
       total: totalSteps(Number(num)),
     }));
-  const finished = rows
-    .filter((r) => r.finishedAt)
-    .sort((a, b) => a.finishedAt - b.finishedAt);
-  const hunting = rows
-    .filter((r) => !r.finishedAt)
-    .sort((a, b) => b.step - a.step || a.teamNum - b.teamNum);
-  finished.forEach((r, i) => (r.rank = i + 1));
-  return { rows: [...finished, ...hunting], finishedCount: finished.length };
+}
+
+// Board source for the admin, who already holds the full teams tree.
+function teamsBoardEntries(teams) {
+  return Object.entries(teams || {})
+    .filter(([num, t]) => ROUTES[num] && t.joined)
+    .map(([num, t]) => ({
+      teamNum: Number(num),
+      step: t.currentStep || 0,
+      finishedAt: t.finishedAt || null,
+      total: totalSteps(Number(num)),
+    }));
 }
 
 async function setStanding(teamNum, patch) {
@@ -777,6 +795,89 @@ function AdminLogin({ onLogin, onBack }) {
    ADMIN DASHBOARD
    ══════════════════════════════════════════════════════════════ */
 
+// One pending photo awaiting the admin's decision — approve, or decline with a
+// message the team will see. Handles both intermediate landmarks and the final
+// O'Donoghue's photo.
+function PendingCard({ num, td, onApprove, onDecline }) {
+  const [reason, setReason] = useState("");
+  const [declining, setDeclining] = useState(false);
+
+  const route = getRoute(num);
+  const isFinal = td.currentStep >= route.length;
+  const targetName = isFinal ? END_PUB.name : LOCATIONS[route[td.currentStep]]?.name;
+  const targetEmoji = isFinal ? END_PUB.emoji : LOCATIONS[route[td.currentStep]]?.emoji;
+  const photoObj = td.photos?.[td.currentStep];
+  const photo = photoObj?.data;
+  const said = photoObj?.locationName;
+  const filename = `team-${num}-step-${td.currentStep + 1}-${safeName(targetName)}.jpg`;
+
+  const submitDecline = () => {
+    if (!reason.trim()) return;
+    onDecline(reason);
+    setReason("");
+    setDeclining(false);
+  };
+
+  return (
+    <div style={{ ...S.card, borderLeft: `4px solid ${TEAM_COLORS[num - 1]}` }}>
+      <h3 style={S.cardSubtitle}>
+        Team {num}: {TEAM_NAMES[num - 1]}
+      </h3>
+      <p style={S.cardText}>
+        {isFinal ? "🏁 Final photo — should be at: " : "Should be at: "}
+        <strong>
+          {targetEmoji} {targetName}
+        </strong>
+      </p>
+      <p style={{ ...S.cardText, margin: "0 0 10px" }}>
+        📝 Team wrote:{" "}
+        <strong style={{ color: said ? T.goldLight : T.redLight }}>
+          {said || "(no location entered)"}
+        </strong>
+      </p>
+      {photo ? (
+        <>
+          <img src={photo} alt="Team photo" style={S.adminPhoto} />
+          <button style={{ ...S.btnOutline, marginTop: 8 }} onClick={() => triggerDownload(photo, filename)}>
+            📥 Download Photo
+          </button>
+        </>
+      ) : (
+        <p style={{ ...S.cardTextSmall, color: T.redLight }}>⚠️ No photo attached</p>
+      )}
+      <p style={S.cardTextSmall}>Submitted: {fmtTime(td.submittedAt)}</p>
+
+      <div style={{ display: "flex", gap: 10, marginTop: 12 }}>
+        <button style={{ ...S.btnPrimary, flex: 1 }} onClick={onApprove}>
+          ✅ Approve
+        </button>
+        <button
+          style={{ ...S.btnOutline, flex: 1, borderColor: T.red, color: T.redLight }}
+          onClick={() => setDeclining((v) => !v)}
+        >
+          🚫 Decline
+        </button>
+      </div>
+
+      {declining && (
+        <div style={{ marginTop: 12 }}>
+          <label style={S.fieldLabel}>Message to the team (why it's declined)</label>
+          <input
+            style={{ ...S.input, textAlign: "left", letterSpacing: 0, fontSize: 15, marginBottom: 10 }}
+            value={reason}
+            placeholder="e.g. Not everyone is in the photo — retake it!"
+            onChange={(e) => setReason(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submitDecline()}
+          />
+          <button style={{ ...S.btnDanger, width: "100%" }} onClick={submitDecline} disabled={!reason.trim()}>
+            Send decline & ask for a new photo
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AdminDashboard({ onBack }) {
   const [game, setGame] = useState(null);
   const [teams, setTeams] = useState({});
@@ -825,7 +926,22 @@ function AdminDashboard({ onBack }) {
       lastApproved: now,
       ...(finishing ? { finishedAt: now } : {}),
     });
-    await setStanding(Number(teamNum), { step: newStep, ...(finishing ? { finishedAt: now } : {}) });
+    // The team's own device mirrors this into `standings` for the leaderboard.
+  };
+
+  // Decline a pending photo with a reason. The team drops out of "pending",
+  // sees a red banner with the message, and can retake the photo for that step.
+  const declineTeam = async (teamNum, message) => {
+    const td = teams[teamNum];
+    if (!td || !td.pendingApproval) return;
+    await dbUpdate(`teams/${teamNum}`, {
+      pendingApproval: false,
+      rejection: {
+        step: td.currentStep,
+        message: (message || "").trim().slice(0, 500) || "Please take another photo.",
+        at: Date.now(),
+      },
+    });
   };
 
   const resetGame = async () => {
@@ -964,6 +1080,7 @@ function AdminDashboard({ onBack }) {
       <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         {[
           ["overview", "📊 Teams"],
+          ["leaderboard", "🏆 Leaderboard"],
           ["pending", `⏳ Pending (${pendingTeams.length})`],
           ["messages", `💬 Messages${totalUnread ? ` (${totalUnread})` : ""}`],
         ].map(([key, label]) => (
@@ -1060,6 +1177,22 @@ function AdminDashboard({ onBack }) {
         </div>
       )}
 
+      {/* Live leaderboard */}
+      {tab === "leaderboard" && (
+        <div style={S.card}>
+          {!game.startedAt && (
+            <p style={S.cardTextSmall}>
+              ⏱️ Start the game to begin the clock — finish times appear here as teams complete.
+            </p>
+          )}
+          <Leaderboard
+            rows={rankEntries(teamsBoardEntries(teams)).rows}
+            meTeam={null}
+            startedAt={game.startedAt}
+          />
+        </div>
+      )}
+
       {/* Pending approvals */}
       {tab === "pending" && (
         <div>
@@ -1068,50 +1201,15 @@ function AdminDashboard({ onBack }) {
               <p style={S.cardText}>No pending approvals ✨</p>
             </div>
           ) : (
-            pendingTeams.map(([num, td]) => {
-              const route = getRoute(Number(num));
-              const loc = LOCATIONS[route[td.currentStep]];
-              const photoObj = td.photos?.[td.currentStep];
-              const photo = photoObj?.data;
-              const said = photoObj?.locationName;
-              const filename = `team-${num}-step-${td.currentStep + 1}-${safeName(loc?.name)}.jpg`;
-              return (
-                <div key={num} style={{ ...S.card, borderLeft: `4px solid ${TEAM_COLORS[num - 1]}` }}>
-                  <h3 style={S.cardSubtitle}>
-                    Team {num}: {TEAM_NAMES[num - 1]}
-                  </h3>
-                  <p style={S.cardText}>
-                    Should be at:{" "}
-                    <strong>
-                      {loc?.emoji} {loc?.name}
-                    </strong>
-                  </p>
-                  <p style={{ ...S.cardText, margin: "0 0 10px" }}>
-                    📝 Team wrote:{" "}
-                    <strong style={{ color: said ? T.goldLight : T.redLight }}>
-                      {said || "(no location entered)"}
-                    </strong>
-                  </p>
-                  {photo ? (
-                    <>
-                      <img src={photo} alt="Team photo" style={S.adminPhoto} />
-                      <button
-                        style={{ ...S.btnOutline, marginTop: 8 }}
-                        onClick={() => triggerDownload(photo, filename)}
-                      >
-                        📥 Download Photo
-                      </button>
-                    </>
-                  ) : (
-                    <p style={{ ...S.cardTextSmall, color: T.redLight }}>⚠️ No photo attached</p>
-                  )}
-                  <p style={S.cardTextSmall}>Submitted: {fmtTime(td.submittedAt)}</p>
-                  <button style={{ ...S.btnPrimary, marginTop: 10 }} onClick={() => approveTeam(Number(num))}>
-                    ✅ Approve & Send Next Clue
-                  </button>
-                </div>
-              );
-            })
+            pendingTeams.map(([num, td]) => (
+              <PendingCard
+                key={num}
+                num={Number(num)}
+                td={td}
+                onApprove={() => approveTeam(Number(num))}
+                onDecline={(msg) => declineTeam(Number(num), msg)}
+              />
+            ))
           )}
         </div>
       )}
@@ -1381,11 +1479,6 @@ function TeamGame({ teamNum, onBack }) {
       } else if (!existing.joined) {
         await dbUpdate(`teams/${teamNum}`, { joined: true });
       }
-      // Mirror progress into the lightweight standings node for the leaderboard.
-      await setStanding(teamNum, {
-        step: existing?.currentStep || 0,
-        ...(existing?.finishedAt ? { finishedAt: existing.finishedAt } : {}),
-      });
     };
     init();
 
@@ -1416,6 +1509,18 @@ function TeamGame({ teamNum, onBack }) {
       unsubStandings();
     };
   }, [teamNum]);
+
+  // This team's device owns its own standings entry. Whenever its authoritative
+  // team data changes — whether it advanced itself (auto mode) or the admin
+  // approved it (approval mode, arriving via the listener) — mirror the current
+  // step and finish time into the lightweight `standings` node the leaderboard
+  // reads. Single writer, so the board can never get stuck out of sync.
+  useEffect(() => {
+    if (!teamData) return;
+    const patch = { step: teamData.currentStep || 0 };
+    if (teamData.finishedAt) patch.finishedAt = teamData.finishedAt;
+    setStanding(teamNum, patch).catch(() => {});
+  }, [teamNum, teamData?.currentStep, teamData?.finishedAt]);
 
   const handlePhoto = async (e) => {
     const file = e.target.files[0];
@@ -1463,6 +1568,7 @@ function TeamGame({ teamNum, onBack }) {
       },
       submittedAt: now,
       pendingApproval: !advance,
+      rejection: null, // clear any previous decline for this step
     };
     if (advance) {
       updates.currentStep = newStep;
@@ -1472,9 +1578,7 @@ function TeamGame({ teamNum, onBack }) {
 
     try {
       await dbUpdate(`teams/${teamNum}`, updates);
-      if (advance) {
-        await setStanding(teamNum, { step: newStep, ...(finishing ? { finishedAt: now } : {}) });
-      }
+      // The standings mirror effect (below) reflects the new step/finish time.
       setPhoto(null);
       setLocName("");
       setShowHint(false);
@@ -1535,39 +1639,50 @@ function TeamGame({ teamNum, onBack }) {
 
   // ── Completed (past the final O'Donoghue's photo) ──
   if (step >= total) {
-    const board = leaderboard(standings);
-    const myRow = board.rows.find((r) => r.teamNum === teamNum);
-    const myRank = myRow?.rank;
+    const { rows } = rankEntries(standingsEntries(standings));
     const baseline = game.startedAt || teamData.startedAt;
+    // Prefer the board's rank; fall back to counting finishers ahead of us using
+    // our own authoritative finish time, so the rank is right the instant we land.
+    let myRank = rows.find((r) => r.teamNum === teamNum)?.rank;
+    if (!myRank && teamData.finishedAt) {
+      const ahead = rows.filter(
+        (r) => r.teamNum !== teamNum && r.finishedAt && r.finishedAt < teamData.finishedAt
+      ).length;
+      myRank = ahead + 1;
+    }
     const myTime = teamData.finishedAt && baseline ? teamData.finishedAt - baseline : null;
     return (
       <div style={S.page}>
-        <div style={{ ...S.splashInner, marginTop: 40 }}>
-          <div style={{ fontSize: 80, marginBottom: 16 }}>{myRank ? medal(myRank) : "🏆"}</div>
-          <h1 style={S.pageTitle}>{myRank ? `You finished ${ordinal(myRank)}!` : "You Did It!"}</h1>
-          <h3 style={{ ...S.subTitle, color: T.gold }}>{TEAM_NAMES[teamNum - 1]}</h3>
+        <div style={{ ...S.splashInner, marginTop: 28 }}>
+          <div style={{ fontSize: 76, marginBottom: 2 }}>{myRank ? medal(myRank) : "🏆"}</div>
+          <div style={S.rankBanner}>{myRank ? `You came ${ordinal(myRank)}!!` : "You finished!"}</div>
+          <h3 style={{ ...S.subTitle, color: T.gold, margin: "8px 0 0" }}>{TEAM_NAMES[teamNum - 1]}</h3>
           {myTime && (
-            <div style={S.timeChip}>
+            <div style={S.timeBig}>
               ⏱️ Your time: <strong>{fmtDuration(myTime)}</strong>
             </div>
           )}
-          <div style={{ ...S.card, textAlign: "center", marginTop: 20 }}>
-            <p style={{ ...S.cardText, fontSize: 18 }}>
-              You've completed the Dublin Treasure Hunt! 🎉
+
+          {/* Head inside */}
+          <div style={S.pubCard}>
+            <span style={{ fontSize: 40 }}>{END_PUB.emoji}</span>
+            <h3 style={{ ...S.cardSubtitle, color: T.gold, margin: "8px 0 4px" }}>
+              Head inside to join everyone!
+            </h3>
+            <p style={{ ...S.cardText, fontSize: 20, fontFamily: "'Cinzel', serif", margin: 0 }}>
+              {END_PUB.name}
             </p>
-            <div style={S.pubCard}>
-              <span style={{ fontSize: 48 }}>{END_PUB.emoji}</span>
-              <h3 style={{ ...S.cardSubtitle, color: T.gold, margin: "8px 0 4px" }}>
-                Head inside to join everyone!
-              </h3>
-              <p style={{ ...S.cardText, fontSize: 20, fontFamily: "'Cinzel', serif" }}>
-                {END_PUB.name}
-              </p>
-              <p style={S.cardTextSmall}>{END_PUB.address}</p>
-            </div>
-            <p style={S.cardTextSmall}>🍺 Go on in — the rest of the group is waiting for you!</p>
+            <p style={S.cardTextSmall}>{END_PUB.address}</p>
           </div>
-          <div style={{ marginTop: 16 }}>
+
+          {/* Leaderboard — shown above the journey */}
+          <div style={{ ...S.card, textAlign: "left" }}>
+            <h4 style={{ ...S.cardSubtitle, marginBottom: 12 }}>🏆 Leaderboard</h4>
+            <Leaderboard rows={rows} meTeam={teamNum} startedAt={baseline} />
+          </div>
+
+          {/* Your journey */}
+          <div>
             <h4 style={{ ...S.cardSubtitle, marginBottom: 12 }}>Your Journey</h4>
             {route.map((locId, i) => (
               <div key={i} style={S.journeyItem}>
@@ -1585,11 +1700,6 @@ function TeamGame({ teamNum, onBack }) {
               </span>
               <span style={{ color: T.greenLight, fontWeight: 800 }}>✓</span>
             </div>
-          </div>
-
-          <div style={{ ...S.card, marginTop: 16, textAlign: "left" }}>
-            <h4 style={{ ...S.cardSubtitle, marginBottom: 12 }}>🏆 Leaderboard</h4>
-            <Leaderboard standings={standings} meTeam={teamNum} startedAt={baseline} />
           </div>
 
           <ChatCard
@@ -1686,6 +1796,17 @@ function TeamGame({ teamNum, onBack }) {
         </div>
       ) : (
         <>
+          {/* Declined-photo notice */}
+          {teamData.rejection && teamData.rejection.step === step && (
+            <div style={S.rejectBanner}>
+              🚫 <strong>Your last photo was declined by the organiser.</strong>
+              <div style={{ marginTop: 6, fontStyle: "italic" }}>“{teamData.rejection.message}”</div>
+              <div style={{ marginTop: 6, opacity: 0.85 }}>
+                Please take another photo and submit it again.
+              </div>
+            </div>
+          )}
+
           {/* Clue */}
           <div style={S.clueCard}>
             <div style={S.clueHeader}>
@@ -1827,10 +1948,11 @@ function ChatCard({ teamNum, messages, unread, open, setOpen }) {
   );
 }
 
-// Ranked list of every team, highlighting the current one. Fed by `standings`.
-function Leaderboard({ standings, meTeam, startedAt }) {
-  const { rows } = leaderboard(standings);
-  if (rows.length === 0) {
+// Ranked list of every team, highlighting the current one (if any). Takes
+// pre-ranked rows from rankEntries() so it works for both the team finish
+// screen (from standings) and the admin dashboard (from teams).
+function Leaderboard({ rows, meTeam, startedAt }) {
+  if (!rows || rows.length === 0) {
     return <p style={S.cardTextSmall}>No teams have joined yet.</p>;
   }
   return (
@@ -1843,7 +1965,7 @@ function Leaderboard({ standings, meTeam, startedAt }) {
           <div key={r.teamNum} style={{ ...S.lbRow, ...(me ? S.lbRowMe : {}) }}>
             <span style={S.lbRank}>{finished ? medal(r.rank) : "🏃"}</span>
             <span
-              style={{ ...S.badge, backgroundColor: TEAM_COLORS[r.teamNum - 1], width: 22, height: 22, fontSize: 11 }}
+              style={{ ...S.badge, backgroundColor: TEAM_COLORS[r.teamNum - 1], width: 24, height: 24, fontSize: 12 }}
             >
               {r.teamNum}
             </span>
@@ -1851,8 +1973,10 @@ function Leaderboard({ standings, meTeam, startedAt }) {
               {TEAM_NAMES[r.teamNum - 1]}
               {me ? " (you)" : ""}
             </span>
-            <span style={S.lbStatus}>
-              {finished ? `${ordinal(r.rank)}${time ? ` · ${time}` : ""}` : `${r.step}/${r.total}`}
+            <span style={{ ...S.lbStatus, color: finished ? T.goldLight : T.text2 }}>
+              {finished
+                ? `${ordinal(r.rank)}${time ? ` · ${time}` : ""}`
+                : `on the hunt · ${r.step}/${r.total}`}
             </span>
           </div>
         );
@@ -2111,6 +2235,17 @@ const S = {
     color: T.cream,
     lineHeight: 1.5,
   },
+  rejectBanner: {
+    padding: "14px 16px",
+    backgroundColor: "rgba(196,69,54,0.15)",
+    border: `1px solid ${T.red}`,
+    borderRadius: 12,
+    color: T.cream,
+    fontSize: 14,
+    lineHeight: 1.5,
+    marginBottom: 16,
+    animation: "slideUp 0.4s ease-out",
+  },
 
   // Team cards (admin)
   teamCard: { backgroundColor: T.bgCard, border: `1px solid ${T.border}`, borderRadius: 12, padding: 14 },
@@ -2323,16 +2458,25 @@ const S = {
   },
   journeyName: { flex: 1, fontSize: 14, color: T.cream },
 
-  // Leaderboard
-  timeChip: {
+  // Finish banner + leaderboard
+  rankBanner: {
+    fontFamily: "'Cinzel Decorative', serif",
+    fontSize: 34,
+    fontWeight: 900,
+    color: T.gold,
+    lineHeight: 1.1,
+    margin: "4px 0 0",
+    textShadow: "0 2px 24px rgba(212,168,83,0.45)",
+  },
+  timeBig: {
     display: "inline-block",
-    margin: "4px auto 0",
-    padding: "6px 16px",
-    borderRadius: 20,
+    marginTop: 14,
+    padding: "10px 22px",
+    borderRadius: 14,
     backgroundColor: T.bgCardLight,
-    border: `1px solid ${T.border}`,
+    border: `1px solid ${T.gold}66`,
     color: T.cream,
-    fontSize: 14,
+    fontSize: 17,
   },
   lbRow: { display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, marginBottom: 4 },
   lbRowMe: { backgroundColor: T.bgCardLight, border: `1px solid ${T.gold}66` },

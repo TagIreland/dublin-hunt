@@ -194,6 +194,9 @@ Send the Vercel URL to all team captains. They open it on their phone's browser 
 - The captain walks the team there, takes a **team photo (everyone must be in shot)**,
   types in **where they think they are**, and submits it
 - They get the next clue (auto, or after you approve the photo in Manual mode)
+- In Manual mode each pending photo has **✅ Approve** and **🚫 Decline** buttons. Declining
+  asks you for a short message (e.g. "not everyone's in shot — retake it"); the team drops out
+  of "waiting", sees your message in a red banner, and takes the photo again for that stop
 - **Lost or stuck?** A team can tap **💬 Message the organiser** to text you. On your
   dashboard you'll see their message *plus* which clue they're on and where they should be
   heading, so you can nudge them in the right direction. Reply straight from the app.
