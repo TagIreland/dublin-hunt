@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set, get, onValue, remove } from "firebase/database";
+import { getDatabase, ref, set, get, onValue, remove, update } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -29,6 +29,12 @@ export async function dbGet(path) {
 
 export async function dbSet(path, value) {
   await set(dbRef(path), value);
+}
+
+// Merge-write: updates only the given child keys, leaving siblings (e.g. messages)
+// untouched. Used so a photo/step write never clobbers the message thread.
+export async function dbUpdate(path, value) {
+  await update(dbRef(path), value);
 }
 
 export async function dbRemove(path) {

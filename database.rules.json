@@ -21,20 +21,30 @@
         ".write": true,
 
         "$teamNum": {
-          ".validate": "$teamNum.matches(/^([1-9]|1[0-2])$/) && newData.hasChildren(['joined', 'currentStep'])",
+          ".validate": "$teamNum.matches(/^([1-9]|10)$/) && newData.hasChildren(['joined', 'currentStep'])",
           "joined": { ".validate": "newData.isBoolean()" },
           "pendingApproval": { ".validate": "newData.isBoolean()" },
           "currentStep": {
-            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 12 && (!data.exists() || (newData.val() >= data.val() && newData.val() <= data.val() + 1))"
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 12"
           },
           "startedAt": { ".validate": "newData.isNumber()" },
           "submittedAt": { ".validate": "newData.isNumber()" },
           "lastApproved": { ".validate": "newData.isNumber()" },
           "photos": {
             "$step": {
-              ".validate": "$step.matches(/^([0-9]|1[01])$/)",
+              ".validate": "$step.matches(/^([0-9]|1[0-2])$/)",
               "data": { ".validate": "newData.isString() && newData.val().length <= 1500000" },
+              "locationName": { ".validate": "newData.isString() && newData.val().length <= 200" },
               "submittedAt": { ".validate": "newData.isNumber()" },
+              "$other": { ".validate": false }
+            }
+          },
+          "messages": {
+            "$msgId": {
+              ".validate": "newData.hasChildren(['from', 'text', 'at'])",
+              "from": { ".validate": "newData.isString() && (newData.val() === 'team' || newData.val() === 'admin')" },
+              "text": { ".validate": "newData.isString() && newData.val().length <= 2000" },
+              "at": { ".validate": "newData.isNumber()" },
               "$other": { ".validate": false }
             }
           },

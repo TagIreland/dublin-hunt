@@ -42,8 +42,8 @@ The repo ships a hardened ruleset in [`database.rules.json`](database.rules.json
 
 These rules:
 - Block all access outside the app's own `dublin-hunt` data
-- Validate the shape/size of everything written (team numbers 1–12, capped photo sizes, no junk fields)
-- Only allow a team's progress to move forward one step at a time
+- Validate the shape/size of everything written (team numbers 1–10, capped photo sizes, capped message length, no junk fields)
+- Keep team progress, photos (with the location the team typed) and the team↔admin message thread all cleanly separated
 - Make the admin PIN **write-once**, so a stranger can't change it and lock you out
 
 > **Important limitation:** This app has no login system — the admin PIN is checked in the browser, so the rules **cannot** stop a determined person from reading the PIN or writing data. For a one-day, share-the-link event that's an acceptable trade-off. If you need real protection, see **Securing the database further** at the end of this guide.
@@ -162,7 +162,7 @@ When it's done, Vercel gives you a URL like `https://dublin-treasure-hunt.vercel
 
 Send the Vercel URL to all team captains. They open it on their phone's browser — no app install needed.
 
-**Pro tip:** Create a QR code for the URL (use https://qr.io or similar) and display it on a screen at Bord Gáis before the hunt starts. Everyone just scans it.
+**Pro tip:** Create a QR code for the URL (use https://qr.io or similar) and display it on a screen at Accenture, Grand Canal Square before the hunt starts. Everyone just scans it.
 
 ---
 
@@ -176,40 +176,71 @@ Send the Vercel URL to all team captains. They open it on their phone's browser 
    - **👁️ Manual Approve**: You verify each selfie before they get the next clue (more control)
 
 ### Starting the hunt
-1. Gather everyone at **Bord Gáis Energy Theatre**
-2. Each team captain opens the URL and taps **Join as a Team** → picks their team number
-3. When everyone's in, hit **▶️ Start Game** on the admin dashboard
-4. All teams instantly see their first clue
+1. Gather everyone at **Accenture, Grand Canal Square**
+2. Each team has **one captain** who runs the app and takes every team photo
+3. Each captain opens the URL and taps **Join as a Team** → picks their team number
+4. When everyone's in, hit **▶️ Start Game** on the admin dashboard
+5. All teams instantly see their first clue
 
 ### During the hunt
 - Each team sees a riddle clue pointing to a Dublin landmark
-- They walk there, take a team selfie, and submit it
-- They get the next clue (auto or after your approval)
-- All 12 teams visit all 12 locations but in **different orders** — so no queuing!
+- **Every team has a completely different route** — 5–6 landmarks, each starting in a
+  different direction out of Grand Canal Square, so teams don't bump into each other
+- The captain walks the team there, takes a **team photo (everyone must be in shot)**,
+  types in **where they think they are**, and submits it
+- They get the next clue (auto, or after you approve the photo in Manual mode)
+- **Lost or stuck?** A team can tap **💬 Message the organiser** to text you. On your
+  dashboard you'll see their message *plus* which clue they're on and where they should be
+  heading, so you can nudge them in the right direction. Reply straight from the app.
 
-### Finishing up
-- When a team completes all 12 locations, they see directions to **The Ferryman** pub
-- You can track everyone's progress in real time on the admin dashboard
+### The secret finish
+- The final pub — **O'Donoghue's, 15 Merrion Row** — is **hidden** from every team until
+  they clear their last landmark. Only then does their final clue reveal it.
+- When a team reaches O'Donoghue's they take one last photo **outside** the pub, then get a
+  "You've finished — head inside!" message. That's your cue: they're at the door.
+- You (the admin) sit inside O'Donoghue's, approving photos, replying to messages, and
+  downloading everyone's pictures as they roll in. Track all 10 teams live on the dashboard.
 
 ---
 
 ## Customisation
 
+Everything you'd want to change lives in one clearly-marked **DATA** block near the top of
+`src/App.jsx`.
+
 ### Change the locations or clues
-Edit the `LOCATIONS` array in `src/App.jsx`. Each location has:
-- `name` — the real name (shown after completing)
+Edit the `LOCATIONS` object in `src/App.jsx`. It's keyed by a short `id`, and each landmark has:
+- `name` — the real name (shown to the admin and after completing)
 - `clue` — the riddle teams see
 - `hint` — shown if they tap "Need a Hint?"
 - `emoji` — displayed alongside the clue
 
-### Change team names
-Edit the `TEAM_NAMES` array in `src/App.jsx`.
+### Change the routes (the important one)
+Edit the `ROUTES` object. Each of the 10 teams has one ordered list of landmark `id`s — its
+own unique 5–6 stop journey. Rules of thumb the current routes follow:
+- **No landmark is repeated across two routes** — every team is fully individual.
+- **Each route opens in a different direction** out of Grand Canal Square so teams fan out.
+- **Each route is planned to run under ~90 minutes** including photos, walking and chat.
+  If you add far-flung landmarks (e.g. the west-side cathedrals), keep that route short or
+  the 90-minute target will slip — that's the main thing to sanity-check if you edit routes.
+- The final pub (`END_PUB`) is appended automatically — don't add it to a route.
 
-### Change the end pub
-Edit the `END_PUB` object in `src/App.jsx`.
+If you change how many landmarks a route has, nothing else needs touching; the progress bar
+and step logic adapt automatically.
 
-### Change number of teams
-The app is set up for 12 teams. To change this, update the arrays and the `Array.from({ length: 12 }, ...)` calls throughout the code.
+### Change the start or the secret finish
+- `START` — where everyone gathers (currently Accenture, Grand Canal Square).
+- `END_PUB` — the secret final pub (currently O'Donoghue's). Its `clue` is the reveal text
+  teams see on their final step, so keep the "take a photo outside, then head in" wording.
+  Nothing about `END_PUB` is shown anywhere until a team reaches its final step.
+
+### Change team names / colours / count
+Edit `TEAM_NAMES` and `TEAM_COLORS` (10 entries each). To change the number of teams, set
+`NUM_TEAMS`, add matching `ROUTES`, and add names/colours to match.
+
+### Change the photo disclaimer or the location prompt
+The "every team member must be visible" disclaimer and the "Where are you?" location box are
+both in the `TeamGame` component's photo card. Edit the copy there.
 
 ### After making changes
 Run `vercel --prod` to redeploy, or push to GitHub and Vercel auto-deploys.
