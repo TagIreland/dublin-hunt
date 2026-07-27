@@ -199,12 +199,28 @@ Send the Vercel URL to all team captains. They open it on their phone's browser 
   heading, so you can nudge them in the right direction. Reply straight from the app.
 
 ### The secret finish
-- The final pub — **O'Donoghue's, 15 Merrion Row** — is **hidden** from every team until
-  they clear their last landmark. Only then does their final clue reveal it.
-- When a team reaches O'Donoghue's they take one last photo **outside** the pub, then get a
-  "You've finished — head inside!" message. That's your cue: they're at the door.
-- You (the admin) sit inside O'Donoghue's, approving photos, replying to messages, and
-  downloading everyone's pictures as they roll in. Track all 10 teams live on the dashboard.
+- The final pub — **O'Donoghue's** — is **hidden** from every team until they clear their
+  last landmark. Their final clue is a **cryptic riddle** (the birthplace of The Dubliners,
+  just off St Stephen's Green) — no address, no pub name. If they're stuck, the "Need a Hint?"
+  button names the pub and street as a safety net.
+- When a team reaches O'Donoghue's they take one last photo **outside** the pub.
+  - In **Auto** mode that instantly finishes them.
+  - In **Manual** mode it lands in your **Pending** tab like any other photo — when you
+    approve it, *that's* the moment their finishing time is locked in. So keep half an eye on
+    Pending near the end; a team is standing outside waiting to be checked in.
+- The moment they're finished they see **what place they came** (1st, 2nd, 3rd…), **their
+  total time**, and a **live leaderboard** of every team — then a "head inside!" message.
+
+### Timings & leaderboard
+- The clock starts when you hit **▶️ Start Game** (that's the baseline every team's time is
+  measured from), and stops when a team's final photo is accepted.
+- Teams **don't** see the leaderboard while they're hunting — it's kept secret so nobody
+  slacks off or panics. Each team only sees the 🏆 **Leaderboard** (with their own place and
+  time) once they've finished.
+- You (the admin) always see the full running order: each team's **place and time** shows on
+  their card on the dashboard throughout the game.
+- The leaderboard is driven by a small, separate `standings` list in the database (just each
+  team's progress + finish time) so player phones never have to download everyone's photos.
 
 ---
 

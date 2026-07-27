@@ -10,10 +10,22 @@
         ".validate": "newData.hasChildren(['started', 'mode', 'pin'])",
         "started": { ".validate": "newData.isBoolean()" },
         "mode": { ".validate": "newData.isString() && (newData.val() === 'auto' || newData.val() === 'approval')" },
+        "startedAt": { ".validate": "newData.isNumber()" },
         "pin": {
           ".validate": "newData.isString() && newData.val().matches(/^[0-9]{4,6}$/) && (!data.exists() || newData.val() === data.val())"
         },
         "$other": { ".validate": false }
+      },
+
+      "standings": {
+        ".read": true,
+        ".write": true,
+        "$teamNum": {
+          ".validate": "$teamNum.matches(/^([1-9]|10)$/)",
+          "step": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 12" },
+          "finishedAt": { ".validate": "newData.isNumber()" },
+          "$other": { ".validate": false }
+        }
       },
 
       "teams": {
@@ -30,6 +42,7 @@
           "startedAt": { ".validate": "newData.isNumber()" },
           "submittedAt": { ".validate": "newData.isNumber()" },
           "lastApproved": { ".validate": "newData.isNumber()" },
+          "finishedAt": { ".validate": "newData.isNumber()" },
           "photos": {
             "$step": {
               ".validate": "$step.matches(/^([0-9]|1[0-2])$/)",

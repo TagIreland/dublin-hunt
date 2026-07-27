@@ -48,6 +48,24 @@ function fmtTime(ms) {
   return new Date(ms).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
+function fmtDuration(ms) {
+  if (!ms || ms < 0) return "—";
+  const mins = Math.floor(ms / 60000);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h ? `${h}h ${m}m` : `${m}m`;
+}
+
+function ordinal(n) {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function medal(rank) {
+  return rank === 1 ? "🥇" : rank === 2 ? "🥈" : rank === 3 ? "🥉" : "🏅";
+}
+
 /* ══════════════════════════════════════════════════════════════
    DATA
 
@@ -72,17 +90,25 @@ const START = {
 };
 
 // SECRET — do not surface anywhere until a team hits its final step.
+// The clue is deliberately cryptic (no address, no pub name). Teams solve it
+// from the music history; the hint is the safety net for anyone truly stuck.
 const END_PUB = {
   name: "O'Donoghue's",
   address: "15 Merrion Row, Dublin 2, D02 PF50",
   emoji: "🍺",
   clue:
-    "Your hunt is nearly done! Make your way to your FINAL destination:\n\n" +
-    "O'Donoghue's — 15 Merrion Row, Dublin 2 (D02 PF50).\n\n" +
-    "It's the famous traditional-music pub just off the northeast corner of " +
-    "St Stephen's Green, on the little street beside the Shelbourne Hotel. " +
-    "When you get there, take a team photo OUTSIDE the pub — then head in!",
-  hint: "Merrion Row runs between the top of Merrion Street and Baggot Street, beside St Stephen's Green.",
+    "No address this time — you'll have to earn the last one. 🎵\n\n" +
+    "In 1962, in a snug little bar just off the NORTHEAST corner of St Stephen's Green, " +
+    "a few ballad singers pulled up stools, started a session, and took their band's name " +
+    "from the very city all around them. From that back room came Ireland's most famous " +
+    "folk group — and to this day the fiddles, bodhráns and singalongs still spill out its " +
+    "door most nights.\n\n" +
+    "Follow the music to the little pub where 'The Dubliners' were born. It sits on the short " +
+    "row that runs off the top corner of the Green, in the shadow of the city's grandest hotel.\n\n" +
+    "Take a team photo OUTSIDE the door — then head in for the session and join everyone else!",
+  hint:
+    "It's O'Donoghue's — the legendary trad-music pub on Merrion Row, right beside the " +
+    "Shelbourne Hotel (and the tiny walled French graveyard next door).",
 };
 
 const LOCATIONS = {
@@ -525,6 +551,37 @@ function sortedMembers(members) {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   LEADERBOARD
+
+   Built from the lightweight `standings/` node (just step + finishedAt
+   per team) so hunter phones never have to download everyone's photos.
+   Finished teams rank by finish time; the rest sort by progress.
+   ══════════════════════════════════════════════════════════════ */
+
+function leaderboard(standings) {
+  const rows = Object.entries(standings || {})
+    .filter(([num]) => ROUTES[num])
+    .map(([num, s]) => ({
+      teamNum: Number(num),
+      step: s.step || 0,
+      finishedAt: s.finishedAt || null,
+      total: totalSteps(Number(num)),
+    }));
+  const finished = rows
+    .filter((r) => r.finishedAt)
+    .sort((a, b) => a.finishedAt - b.finishedAt);
+  const hunting = rows
+    .filter((r) => !r.finishedAt)
+    .sort((a, b) => b.step - a.step || a.teamNum - b.teamNum);
+  finished.forEach((r, i) => (r.rank = i + 1));
+  return { rows: [...finished, ...hunting], finishedCount: finished.length };
+}
+
+async function setStanding(teamNum, patch) {
+  await dbUpdate(`standings/${teamNum}`, patch);
+}
+
+/* ══════════════════════════════════════════════════════════════
    THEME
    ══════════════════════════════════════════════════════════════ */
 
@@ -741,7 +798,14 @@ function AdminDashboard({ onBack }) {
   }, []);
 
   const toggleGame = async () => {
-    await dbSet("game", { ...game, started: !game.started });
+    const starting = !game.started;
+    // Stamp the hunt start time the first time we go live — it's the baseline
+    // every team's finishing time is measured from.
+    await dbSet("game", {
+      ...game,
+      started: starting,
+      ...(starting ? { startedAt: Date.now() } : {}),
+    });
   };
 
   const toggleMode = async () => {
@@ -752,17 +816,24 @@ function AdminDashboard({ onBack }) {
   const approveTeam = async (teamNum) => {
     const td = teams[teamNum];
     if (!td || !td.pendingApproval) return;
+    const now = Date.now();
+    const newStep = td.currentStep + 1;
+    const finishing = newStep >= totalSteps(Number(teamNum));
     await dbUpdate(`teams/${teamNum}`, {
-      currentStep: td.currentStep + 1,
+      currentStep: newStep,
       pendingApproval: false,
-      lastApproved: Date.now(),
+      lastApproved: now,
+      ...(finishing ? { finishedAt: now } : {}),
     });
+    await setStanding(Number(teamNum), { step: newStep, ...(finishing ? { finishedAt: now } : {}) });
   };
 
   const resetGame = async () => {
-    if (!window.confirm("Reset the whole game? This wipes every team's progress, photos and messages.")) return;
+    if (!window.confirm("Reset the whole game? This wipes every team's progress, photos, messages and the leaderboard.")) return;
     await dbRemove("teams");
-    await dbSet("game", { ...game, started: false });
+    await dbRemove("standings");
+    // Fresh game object — keep the PIN, drop the old start time.
+    await dbSet("game", { started: false, mode: game.mode, pin: game.pin });
   };
 
   const kickMember = async (teamNum, memberId, name) => {
@@ -811,6 +882,14 @@ function AdminDashboard({ onBack }) {
   const pendingTeams = teamEntries.filter(([, t]) => t.pendingApproval);
   const activeTeams = teamEntries.filter(([, t]) => t.joined);
   const totalUnread = teamEntries.reduce((n, [, t]) => n + unreadForAdmin(t.messages), 0);
+
+  // Finish order + times for the overview.
+  const rankOf = {};
+  teamEntries
+    .filter(([, t]) => t.finishedAt)
+    .sort((a, b) => a[1].finishedAt - b[1].finishedAt)
+    .forEach(([num], i) => (rankOf[num] = i + 1));
+  const baseline = game.startedAt;
 
   // ── Individual chat thread view ──
   if (openThread) {
@@ -938,7 +1017,11 @@ function AdminDashboard({ onBack }) {
                   {!td?.joined
                     ? "Not joined"
                     : step >= total
-                    ? "🎉 Finished — at O'Donoghue's!"
+                    ? rankOf[num]
+                      ? `${medal(rankOf[num])} Finished ${ordinal(rankOf[num])}${
+                          baseline && td.finishedAt ? ` · ${fmtDuration(td.finishedAt - baseline)}` : ""
+                        }`
+                      : "🎉 Finished — at O'Donoghue's!"
                     : td?.pendingApproval
                     ? `⏳ Awaiting approval · ${ctx.label}`
                     : `📍 ${step}/${total} · ${ctx.label}`}
@@ -1278,6 +1361,7 @@ function TeamGame({ teamNum, onBack }) {
   const [showHint, setShowHint] = useState(false);
   const [celebration, setCelebration] = useState(false);
   const [showChat, setShowChat] = useState(false);
+  const [standings, setStandings] = useState({});
   const fileRef = useRef();
   const route = getRoute(teamNum);
   const total = totalSteps(teamNum);
@@ -1297,11 +1381,20 @@ function TeamGame({ teamNum, onBack }) {
       } else if (!existing.joined) {
         await dbUpdate(`teams/${teamNum}`, { joined: true });
       }
+      // Mirror progress into the lightweight standings node for the leaderboard.
+      await setStanding(teamNum, {
+        step: existing?.currentStep || 0,
+        ...(existing?.finishedAt ? { finishedAt: existing.finishedAt } : {}),
+      });
     };
     init();
 
     const unsubGame = dbListen("game", (val) => {
       if (!cancelled && val) setGame(val);
+    });
+
+    const unsubStandings = dbListen("standings", (val) => {
+      if (!cancelled) setStandings(val || {});
     });
 
     const unsubTeam = dbListen(`teams/${teamNum}`, (val) => {
@@ -1320,6 +1413,7 @@ function TeamGame({ teamNum, onBack }) {
       cancelled = true;
       unsubGame();
       unsubTeam();
+      unsubStandings();
     };
   }, [teamNum]);
 
@@ -1352,26 +1446,35 @@ function TeamGame({ teamNum, onBack }) {
     setSubmitting(true);
 
     const isAuto = game?.mode === "auto";
-    // The final O'Donoghue's photo always completes immediately (no approval gate).
-    const advance = isAuto || isFinalStep;
+    // Every step (including the final O'Donoghue's photo) honours the game mode:
+    // auto counts instantly, approval waits for the admin. The finish time is
+    // therefore the moment the last photo is *accepted*.
+    const advance = isAuto;
+    const now = Date.now();
+    const newStep = step + 1;
+    const finishing = advance && newStep >= total;
     const stepKey = step;
 
     const updates = {
       [`photos/${stepKey}`]: {
         data: photo,
         locationName: isFinalStep ? END_PUB.name : locName.trim().slice(0, 200),
-        submittedAt: Date.now(),
+        submittedAt: now,
       },
-      submittedAt: Date.now(),
+      submittedAt: now,
       pendingApproval: !advance,
     };
     if (advance) {
-      updates.currentStep = step + 1;
-      updates.lastApproved = Date.now();
+      updates.currentStep = newStep;
+      updates.lastApproved = now;
     }
+    if (finishing) updates.finishedAt = now;
 
     try {
       await dbUpdate(`teams/${teamNum}`, updates);
+      if (advance) {
+        await setStanding(teamNum, { step: newStep, ...(finishing ? { finishedAt: now } : {}) });
+      }
       setPhoto(null);
       setLocName("");
       setShowHint(false);
@@ -1432,12 +1535,22 @@ function TeamGame({ teamNum, onBack }) {
 
   // ── Completed (past the final O'Donoghue's photo) ──
   if (step >= total) {
+    const board = leaderboard(standings);
+    const myRow = board.rows.find((r) => r.teamNum === teamNum);
+    const myRank = myRow?.rank;
+    const baseline = game.startedAt || teamData.startedAt;
+    const myTime = teamData.finishedAt && baseline ? teamData.finishedAt - baseline : null;
     return (
       <div style={S.page}>
         <div style={{ ...S.splashInner, marginTop: 40 }}>
-          <div style={{ fontSize: 80, marginBottom: 16 }}>🏆</div>
-          <h1 style={S.pageTitle}>You Did It!</h1>
+          <div style={{ fontSize: 80, marginBottom: 16 }}>{myRank ? medal(myRank) : "🏆"}</div>
+          <h1 style={S.pageTitle}>{myRank ? `You finished ${ordinal(myRank)}!` : "You Did It!"}</h1>
           <h3 style={{ ...S.subTitle, color: T.gold }}>{TEAM_NAMES[teamNum - 1]}</h3>
+          {myTime && (
+            <div style={S.timeChip}>
+              ⏱️ Your time: <strong>{fmtDuration(myTime)}</strong>
+            </div>
+          )}
           <div style={{ ...S.card, textAlign: "center", marginTop: 20 }}>
             <p style={{ ...S.cardText, fontSize: 18 }}>
               You've completed the Dublin Treasure Hunt! 🎉
@@ -1473,6 +1586,12 @@ function TeamGame({ teamNum, onBack }) {
               <span style={{ color: T.greenLight, fontWeight: 800 }}>✓</span>
             </div>
           </div>
+
+          <div style={{ ...S.card, marginTop: 16, textAlign: "left" }}>
+            <h4 style={{ ...S.cardSubtitle, marginBottom: 12 }}>🏆 Leaderboard</h4>
+            <Leaderboard standings={standings} meTeam={teamNum} startedAt={baseline} />
+          </div>
+
           <ChatCard
             teamNum={teamNum}
             messages={teamData.messages}
@@ -1550,11 +1669,20 @@ function TeamGame({ teamNum, onBack }) {
         <div style={{ ...S.card, textAlign: "center", borderColor: T.gold }}>
           <div style={{ fontSize: 48, marginBottom: 12 }}>📸</div>
           <h3 style={S.cardSubtitle}>Photo Submitted!</h3>
-          <p style={S.cardText}>
-            Waiting for the admin to verify your photo at <strong>{currentLoc?.name}</strong>
-          </p>
+          {isFinalStep ? (
+            <p style={S.cardText}>
+              You're at the finish! Waiting for the organiser to check your photo and{" "}
+              <strong>officially clock you in</strong>…
+            </p>
+          ) : (
+            <p style={S.cardText}>
+              Waiting for the admin to verify your photo at <strong>{currentLoc?.name}</strong>
+            </p>
+          )}
           <div style={S.pulsingDot} />
-          <p style={S.cardTextSmall}>Sit tight — the next clue is coming soon!</p>
+          <p style={S.cardTextSmall}>
+            {isFinalStep ? "Almost there — your final time is being locked in!" : "Sit tight — the next clue is coming soon!"}
+          </p>
         </div>
       ) : (
         <>
@@ -1698,6 +1826,41 @@ function ChatCard({ teamNum, messages, unread, open, setOpen }) {
     </div>
   );
 }
+
+// Ranked list of every team, highlighting the current one. Fed by `standings`.
+function Leaderboard({ standings, meTeam, startedAt }) {
+  const { rows } = leaderboard(standings);
+  if (rows.length === 0) {
+    return <p style={S.cardTextSmall}>No teams have joined yet.</p>;
+  }
+  return (
+    <div>
+      {rows.map((r) => {
+        const me = r.teamNum === meTeam;
+        const finished = !!r.finishedAt;
+        const time = finished && startedAt ? fmtDuration(r.finishedAt - startedAt) : null;
+        return (
+          <div key={r.teamNum} style={{ ...S.lbRow, ...(me ? S.lbRowMe : {}) }}>
+            <span style={S.lbRank}>{finished ? medal(r.rank) : "🏃"}</span>
+            <span
+              style={{ ...S.badge, backgroundColor: TEAM_COLORS[r.teamNum - 1], width: 22, height: 22, fontSize: 11 }}
+            >
+              {r.teamNum}
+            </span>
+            <span style={S.lbName}>
+              {TEAM_NAMES[r.teamNum - 1]}
+              {me ? " (you)" : ""}
+            </span>
+            <span style={S.lbStatus}>
+              {finished ? `${ordinal(r.rank)}${time ? ` · ${time}` : ""}` : `${r.step}/${r.total}`}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 
 /* ══════════════════════════════════════════════════════════════
    MAIN APP
@@ -2159,6 +2322,23 @@ const S = {
     flexShrink: 0,
   },
   journeyName: { flex: 1, fontSize: 14, color: T.cream },
+
+  // Leaderboard
+  timeChip: {
+    display: "inline-block",
+    margin: "4px auto 0",
+    padding: "6px 16px",
+    borderRadius: 20,
+    backgroundColor: T.bgCardLight,
+    border: `1px solid ${T.border}`,
+    color: T.cream,
+    fontSize: 14,
+  },
+  lbRow: { display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", borderRadius: 8, marginBottom: 4 },
+  lbRowMe: { backgroundColor: T.bgCardLight, border: `1px solid ${T.gold}66` },
+  lbRank: { fontSize: 16, width: 24, textAlign: "center", flexShrink: 0 },
+  lbName: { flex: 1, fontSize: 14, color: T.cream, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  lbStatus: { fontSize: 12, color: T.text2, fontWeight: 700, flexShrink: 0 },
 
   // Pub card
   pubCard: {
