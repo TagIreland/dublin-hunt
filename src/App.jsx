@@ -513,6 +513,18 @@ function teamContext(teamNum, td) {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   ROSTER HELPERS
+   ══════════════════════════════════════════════════════════════ */
+
+// members is an object keyed by id; return an array of { id, name, addedAt }
+// sorted by the order they were added.
+function sortedMembers(members) {
+  return Object.entries(members || {})
+    .map(([id, m]) => ({ id, ...m }))
+    .sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+}
+
+/* ══════════════════════════════════════════════════════════════
    THEME
    ══════════════════════════════════════════════════════════════ */
 
@@ -713,6 +725,7 @@ function AdminDashboard({ onBack }) {
   const [teams, setTeams] = useState({});
   const [tab, setTab] = useState("overview");
   const [openThread, setOpenThread] = useState(null); // teamNum whose chat is open
+  const [rosterOpen, setRosterOpen] = useState({}); // { [teamNum]: bool }
 
   useEffect(() => {
     const unsubGame = dbListen("game", (val) => {
@@ -750,6 +763,11 @@ function AdminDashboard({ onBack }) {
     if (!window.confirm("Reset the whole game? This wipes every team's progress, photos and messages.")) return;
     await dbRemove("teams");
     await dbSet("game", { ...game, started: false });
+  };
+
+  const kickMember = async (teamNum, memberId, name) => {
+    if (!window.confirm(`Remove ${name} from Team ${teamNum}? This just takes them off the roster.`)) return;
+    await dbRemove(`teams/${teamNum}/members/${memberId}`);
   };
 
   const downloadAllPhotos = async () => {
@@ -925,6 +943,34 @@ function AdminDashboard({ onBack }) {
                     ? `⏳ Awaiting approval · ${ctx.label}`
                     : `📍 ${step}/${total} · ${ctx.label}`}
                 </p>
+                {td?.joined && (() => {
+                  const members = sortedMembers(td.members);
+                  const open = rosterOpen[num];
+                  return (
+                    <div style={{ marginTop: 8 }}>
+                      <button
+                        style={S.rosterToggle}
+                        onClick={() => setRosterOpen((p) => ({ ...p, [num]: !p[num] }))}
+                      >
+                        👥 {members.length} member{members.length === 1 ? "" : "s"}
+                        {members.length ? (open ? " ▲" : " ▼") : ""}
+                      </button>
+                      {open &&
+                        (members.length === 0 ? (
+                          <p style={S.cardTextSmall}>No members listed for this team.</p>
+                        ) : (
+                          members.map((m) => (
+                            <div key={m.id} style={S.memberRow}>
+                              <span style={S.memberName}>{m.name}</span>
+                              <button style={S.kickBtn} onClick={() => kickMember(num, m.id, m.name)}>
+                                Kick ✕
+                              </button>
+                            </div>
+                          ))
+                        ))}
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
@@ -1076,6 +1122,143 @@ function TeamSelect({ onSelect, onBack }) {
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+/* ══════════════════════════════════════════════════════════════
+   TEAM ROSTER (name collection at join time)
+   ══════════════════════════════════════════════════════════════ */
+
+function TeamRoster({ teamNum, onDone, onBack }) {
+  const [names, setNames] = useState([]);
+  const [draft, setDraft] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  const addName = () => {
+    const n = draft.trim();
+    if (!n) return;
+    setNames((prev) => [...prev, n]);
+    setDraft("");
+  };
+  const removeName = (i) => setNames((prev) => prev.filter((_, idx) => idx !== i));
+
+  const join = async () => {
+    if (names.length === 0 || saving) return;
+    setSaving(true);
+    const members = {};
+    let t = Date.now();
+    names.forEach((name) => {
+      members[genId()] = { name: name.slice(0, 80), addedAt: t++ };
+    });
+    try {
+      const existing = await dbGet(`teams/${teamNum}`);
+      await dbSet(`teams/${teamNum}`, {
+        joined: true,
+        currentStep: existing?.currentStep || 0,
+        pendingApproval: existing?.pendingApproval || false,
+        startedAt: existing?.startedAt || Date.now(),
+        members,
+      });
+      onDone();
+    } catch (err) {
+      console.error("Failed to join:", err);
+      alert("Couldn't join. Check your connection and try again.");
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div style={S.page}>
+      <button style={S.backBtn} onClick={onBack}>
+        ← Back
+      </button>
+      <h1 style={{ ...S.pageTitle, color: TEAM_COLORS[teamNum - 1] }}>Team {teamNum}</h1>
+      <p style={S.subTitle}>{TEAM_NAMES[teamNum - 1]}</p>
+      <div style={S.card}>
+        <h3 style={S.cardSubtitle}>👥 Who's on your team?</h3>
+        <p style={S.cardTextSmall}>
+          Add everyone playing on this team — including you, the captain. The organiser will see
+          this list and needs real names, so no nicknames that no one will recognise!
+        </p>
+        <div style={{ display: "flex", gap: 8, margin: "14px 0" }}>
+          <input
+            style={{ ...S.input, textAlign: "left", letterSpacing: 0, fontSize: 16, marginBottom: 0, flex: 1 }}
+            value={draft}
+            placeholder="Team member's name"
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && addName()}
+          />
+          <button style={{ ...S.btnPrimary, width: "auto", padding: "0 20px" }} onClick={addName}>
+            Add
+          </button>
+        </div>
+        {names.length === 0 ? (
+          <p style={{ ...S.cardTextSmall, textAlign: "center" }}>No one added yet.</p>
+        ) : (
+          names.map((n, i) => (
+            <div key={i} style={S.memberRow}>
+              <span style={S.memberName}>
+                {i + 1}. {n}
+              </span>
+              <button style={S.kickBtn} onClick={() => removeName(i)}>
+                ✕
+              </button>
+            </div>
+          ))
+        )}
+      </div>
+      <button
+        style={{ ...S.btnPrimary, opacity: names.length === 0 ? 0.5 : 1 }}
+        onClick={join}
+        disabled={names.length === 0 || saving}
+      >
+        {saving ? "Joining…" : `🏃 Join with ${names.length} ${names.length === 1 ? "player" : "players"}`}
+      </button>
+    </div>
+  );
+}
+
+// Editable roster card shown on the team screen so a captain can fix names,
+// add a latecomer, or drop someone mid-hunt. Kept in sync with the admin view.
+function RosterCard({ teamNum, members }) {
+  const [draft, setDraft] = useState("");
+  const list = sortedMembers(members);
+
+  const add = async () => {
+    const n = draft.trim();
+    if (!n) return;
+    await dbSet(`teams/${teamNum}/members/${genId()}`, { name: n.slice(0, 80), addedAt: Date.now() });
+    setDraft("");
+  };
+  const remove = async (id) => {
+    await dbRemove(`teams/${teamNum}/members/${id}`);
+  };
+
+  return (
+    <div style={{ ...S.card, marginTop: 20 }}>
+      <h4 style={S.cardSubtitle}>👥 Your team ({list.length})</h4>
+      {list.length === 0 && <p style={S.cardTextSmall}>No members listed — add your team below.</p>}
+      {list.map((m) => (
+        <div key={m.id} style={S.memberRow}>
+          <span style={S.memberName}>{m.name}</span>
+          <button style={S.kickBtn} onClick={() => remove(m.id)}>
+            ✕
+          </button>
+        </div>
+      ))}
+      <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+        <input
+          style={{ ...S.input, textAlign: "left", letterSpacing: 0, fontSize: 15, marginBottom: 0, flex: 1 }}
+          value={draft}
+          placeholder="Add a team member"
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && add()}
+        />
+        <button style={{ ...S.btnOutline, flex: "none", width: "auto", padding: "0 18px" }} onClick={add}>
+          Add
+        </button>
       </div>
     </div>
   );
@@ -1234,6 +1417,7 @@ function TeamGame({ teamNum, onBack }) {
             </p>
             <div style={S.pulsingDot} />
           </div>
+          <RosterCard teamNum={teamNum} members={teamData.members} />
           <ChatCard
             teamNum={teamNum}
             messages={teamData.messages}
@@ -1452,6 +1636,9 @@ function TeamGame({ teamNum, onBack }) {
         </>
       )}
 
+      {/* Team roster */}
+      <RosterCard teamNum={teamNum} members={teamData.members} />
+
       {/* Message the organiser */}
       <ChatCard
         teamNum={teamNum}
@@ -1526,6 +1713,9 @@ export default function App() {
     }
   });
   const [view, setView] = useState(teamNum ? "team-game" : "splash");
+  // A team number chosen but not yet joined (waiting on the roster step).
+  // Not persisted to localStorage until the captain finishes joining.
+  const [pendingTeam, setPendingTeam] = useState(null);
 
   useEffect(() => {
     try {
@@ -1555,10 +1745,24 @@ export default function App() {
       {view === "team-select" && (
         <TeamSelect
           onSelect={(n) => {
-            setTeamNum(n);
-            setView("team-game");
+            setPendingTeam(n);
+            setView("team-roster");
           }}
           onBack={() => setView("splash")}
+        />
+      )}
+      {view === "team-roster" && pendingTeam && (
+        <TeamRoster
+          teamNum={pendingTeam}
+          onDone={() => {
+            setTeamNum(pendingTeam);
+            setPendingTeam(null);
+            setView("team-game");
+          }}
+          onBack={() => {
+            setPendingTeam(null);
+            setView("team-select");
+          }}
         />
       )}
       {view === "team-game" && teamNum && (
@@ -1826,6 +2030,48 @@ const S = {
     color: "#fff",
   },
   teamSelectName: { fontWeight: 700, fontSize: 13, color: T.cream, textAlign: "center" },
+
+  // Roster / members
+  rosterToggle: {
+    background: "none",
+    border: "none",
+    color: T.text2,
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
+    padding: 0,
+    fontFamily: "'Nunito', sans-serif",
+  },
+  memberRow: {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    padding: "8px 12px",
+    backgroundColor: T.bgCardLight,
+    borderRadius: 8,
+    marginTop: 6,
+  },
+  memberName: {
+    fontSize: 14,
+    color: T.cream,
+    flex: 1,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  kickBtn: {
+    background: "none",
+    border: `1px solid ${T.red}66`,
+    color: T.redLight,
+    fontSize: 12,
+    fontWeight: 700,
+    padding: "4px 10px",
+    borderRadius: 8,
+    cursor: "pointer",
+    flexShrink: 0,
+    fontFamily: "'Nunito', sans-serif",
+  },
 
   // Clue
   clueCard: {

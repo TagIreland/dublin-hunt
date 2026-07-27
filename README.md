@@ -178,9 +178,14 @@ Send the Vercel URL to all team captains. They open it on their phone's browser 
 ### Starting the hunt
 1. Gather everyone at **Accenture, Grand Canal Square**
 2. Each team has **one captain** who runs the app and takes every team photo
-3. Each captain opens the URL and taps **Join as a Team** → picks their team number
+3. Each captain opens the URL and taps **Join as a Team** → picks their team number →
+   **types in the name of every player on the team** (including themselves) before joining
 4. When everyone's in, hit **▶️ Start Game** on the admin dashboard
 5. All teams instantly see their first clue
+
+> **Rosters:** You (the admin) can expand any team on the dashboard to see exactly who's on
+> it (👥 members), and **Kick** anyone who shouldn't be there. Captains can also fix their own
+> roster — add a latecomer or drop someone — from the "Your team" card on their screen.
 
 ### During the hunt
 - Each team sees a riddle clue pointing to a Dublin landmark

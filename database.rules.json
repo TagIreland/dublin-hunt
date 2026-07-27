@@ -48,6 +48,14 @@
               "$other": { ".validate": false }
             }
           },
+          "members": {
+            "$memberId": {
+              ".validate": "newData.hasChildren(['name'])",
+              "name": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 80" },
+              "addedAt": { ".validate": "newData.isNumber()" },
+              "$other": { ".validate": false }
+            }
+          },
           "$other": { ".validate": false }
         }
       }
