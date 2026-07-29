@@ -1791,7 +1791,7 @@ function TeamGame({ teamNum, onBack }) {
 
           {/* Photo */}
           <div style={S.card}>
-            <h3 style={S.cardSubtitle}>
+            <h3 style={{ ...S.cardSubtitle, textAlign: "center" }}>
               {isFinalStep ? "📸 One Last Photo!" : "📸 Prove You're There!"}
             </h3>
             <p style={S.cardTextSmall}>
