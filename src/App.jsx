@@ -273,11 +273,11 @@ const LOCATIONS = {
   },
 
   // ── Grand Canal / Baggot Street ──────────────────────────────
-  "wilton-terrace": {
-    name: "Wilton Terrace Canal Walk",
+  "wilton-park": {
+    name: "Wilton Park",
     emoji: "🦢",
-    clue: "A tree-lined towpath where office workers eat their lunch by the still water and the swans come begging for crumbs.",
-    hint: "The canal-side walk between Baggot Street and Leeson Street bridges.",
+    clue: "Tucked away from the Dublin bustle, this green escape has watched the city grow around it. Find the park where Georgian streets give way to open skies right by the canal.",
+    hint: "Every city needs a breath of fresh air — find Dublin's little patch of green on Wilton Terrace.",
   },
   "mount-street-bridge": {
     name: "Mount Street Bridge",
@@ -413,7 +413,7 @@ const ROUTES = {
   5: ["epic-chq", "padraig-pearse-pub", "merrion-square", "grafton-street", "phil-lynott"], // 3.1 km | 38 min | 63 min
   6: ["windmill-lane", "merrion-square", "rcsi", "george-street-arcade", "little-museum"], // 3.2 km | 39 min | 64 min
   7: ["bolands-mill", "mount-street-bridge", "merrion-square", "molly-malone", "national-museum"], // 3.3 km | 40 min | 65 min
-  8: ["grand-canal-dock", "the-schoolhouse", "wilton-terrace", "newman-church", "national-concert-hall"], // 3.1 km | 38 min | 63 min
+  8: ["grand-canal-dock", "the-schoolhouse", "wilton-park", "newman-church", "national-concert-hall"], // 3.1 km | 38 min | 63 min
   9: ["grand-canal-locks", "merrion-square", "iveagh-gardens", "freemasons-hall", "stephens-green"], // 3.3 km | 40 min | 65 min
   10: ["aviva-stadium", "the-schoolhouse", "fitzwilliam-square", "national-gallery", "natural-history"], // 3.5 km | 42 min | 67 min
 };
