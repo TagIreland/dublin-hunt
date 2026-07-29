@@ -143,12 +143,6 @@ const LOCATIONS = {
     clue: "We are gaunt bronze figures walking forever toward the emigrant ships. Our thin faces remember Ireland's darkest years.",
     hint: "On Custom House Quay, just east of the Custom House.",
   },
-  "sean-ocasey-bridge": {
-    name: "Seán O'Casey Bridge",
-    emoji: "🚶",
-    clue: "A slender bridge for walkers only, I pivot open to let ships through. I carry the name of a playwright of the Dublin tenements.",
-    hint: "The pedestrian swing bridge between City Quay and North Wall Quay.",
-  },
   "convention-centre": {
     name: "Convention Centre Dublin",
     emoji: "🛢️",
@@ -163,12 +157,6 @@ const LOCATIONS = {
   },
 
   // ── Grand Canal Dock / east ──────────────────────────────────
-  "waterways-box": {
-    name: "Waterways Ireland Visitor Centre",
-    emoji: "🧊",
-    clue: "A glass box perched out over the old dock basin — locals simply call me 'the box in the docks'.",
-    hint: "On the boardwalk in Grand Canal Dock basin.",
-  },
   "grand-canal-dock": {
     name: "Grand Canal Dock Basin",
     emoji: "🛶",
@@ -207,12 +195,6 @@ const LOCATIONS = {
   },
 
   // ── Central quays / Temple Bar ───────────────────────────────
-  "rosie-hackett-bridge": {
-    name: "Rosie Hackett Bridge",
-    emoji: "🌉",
-    clue: "The newest bridge across the Liffey and the first ever named for a woman — a trade unionist who fought for Dublin's working people.",
-    hint: "The Liffey bridge that carries the Luas trams, between O'Connell and Butt Bridges.",
-  },
   "hapenny-bridge": {
     name: "Ha'penny Bridge",
     emoji: "🌁",
@@ -239,29 +221,11 @@ const LOCATIONS = {
   },
 
   // ── Trinity / Pearse Street ──────────────────────────────────
-  "science-gallery": {
-    name: "Science Gallery",
-    emoji: "🔬",
-    clue: "Where Pearse Street meets Trinity's eastern edge, I blur art and science in ever-changing exhibitions. Students and the curious pass through my doors.",
-    hint: "Corner of Pearse Street, at the east end of Trinity College.",
-  },
   "trinity-front-gate": {
     name: "Trinity College Front Gate",
     emoji: "🎓",
     clue: "Ireland's oldest university, founded by a queen in 1592. The Book of Kells sleeps behind my walls. Enter beneath my grand arch.",
     hint: "The main entrance on College Green.",
-  },
-  campanile: {
-    name: "Trinity Campanile",
-    emoji: "🔔",
-    clue: "A bell tower rising from the cobbles at the heart of the square — legend says a student who walks beneath me as I ring will fail their exams.",
-    hint: "In Trinity's Parliament Square, straight through the front gate.",
-  },
-  "sweny-pharmacy": {
-    name: "Sweny's Pharmacy",
-    emoji: "💊",
-    clue: "A tiny Victorian chemist frozen in time, where Leopold Bloom bought a bar of lemon soap in 'Ulysses'. Readers still gather to read Joyce aloud in me.",
-    hint: "On Lincoln Place, at the back of Trinity College.",
   },
 
   // ── Merrion Square / Georgian core ───────────────────────────
@@ -301,18 +265,6 @@ const LOCATIONS = {
     clue: "Bog bodies, Viking gold and the great Tara Brooch sleep beneath my domed rotunda. Ireland's ancient treasure lives in me.",
     hint: "On Kildare Street, beside Leinster House.",
   },
-  "peppercanister": {
-    name: "St Stephen's 'Peppercanister' Church",
-    emoji: "⛪",
-    clue: "My nickname comes from my shape — a domed lantern like a pepper pot, perfectly closing off the view down Mount Street.",
-    hint: "At Mount Street Crescent, top of Upper Mount Street.",
-  },
-  "number-29": {
-    name: "Number 29 Georgian House",
-    emoji: "🚪",
-    clue: "A perfectly preserved middle-class home of the 1790s, from the cellar kitchen right up to the children's nursery at the top.",
-    hint: "Corner of Lower Fitzwilliam Street and Mount Street.",
-  },
   "fitzwilliam-square": {
     name: "Fitzwilliam Square",
     emoji: "🔑",
@@ -321,18 +273,6 @@ const LOCATIONS = {
   },
 
   // ── Grand Canal / Baggot Street ──────────────────────────────
-  "huband-bridge": {
-    name: "Huband Bridge",
-    emoji: "🌉",
-    clue: "A pretty stone hump-backed bridge from 1791, arching over the calm green Grand Canal where the swans drift by.",
-    hint: "A small stone canal bridge near Upper Mount Street.",
-  },
-  "kavanagh-statue": {
-    name: "Patrick Kavanagh Statue",
-    emoji: "🪑",
-    clue: "By the leafy canal a poet sits forever on a bench, just as he asked: 'O commemorate me where there is water'.",
-    hint: "The bench statue on the canal bank at Baggot Street Bridge.",
-  },
   "wilton-terrace": {
     name: "Wilton Terrace Canal Walk",
     emoji: "🦢",
@@ -352,12 +292,6 @@ const LOCATIONS = {
     emoji: "🦆",
     clue: "Twenty-two acres of green in the city's heart. During the 1916 Rising both sides paused their fighting so the keeper could feed my ducks.",
     hint: "The large park at the top of Grafton Street.",
-  },
-  "fusiliers-arch": {
-    name: "Fusiliers' Arch",
-    emoji: "🏛️",
-    clue: "A great stone arch guarding the corner of the Green — some Dubliners nicknamed me 'Traitor's Gate'. I list the fallen of a distant war.",
-    hint: "The arch at the northwest corner of St Stephen's Green, at the top of Grafton Street.",
   },
   "newman-church": {
     name: "University Church (Newman)",
@@ -421,12 +355,6 @@ const LOCATIONS = {
     clue: "The Lord Mayor of Dublin has lived in my Queen Anne house since 1715, and the very first Dáil met in my Round Room in 1919.",
     hint: "On Dawson Street, between Trinity and St Stephen's Green.",
   },
-  "st-anns-church": {
-    name: "St Ann's Church, Dawson Street",
-    emoji: "⛪",
-    clue: "A grand Romanesque front on Dawson Street. Bram Stoker married here, and I still leave loaves of bread on a shelf for the poor, as a 1723 bequest demands.",
-    hint: "On Dawson Street, near the Mansion House.",
-  },
   "freemasons-hall": {
     name: "Freemasons' Hall",
     emoji: "🏛️",
@@ -439,22 +367,55 @@ const LOCATIONS = {
     clue: "A bronze rocker with his bass guitar — the frontman of Thin Lizzy, standing outside the pub where the music crowd still gathers.",
     hint: "On Harry Street, off Grafton Street (outside Bruxelles).",
   },
+
+  // ── Stations, libraries & extra stops ────────────────────────
+  "national-library": {
+    name: "National Library of Ireland",
+    emoji: "📚",
+    clue: "On Kildare Street I keep the nation's memory — first editions, ancient maps and the very notebooks of Yeats and Joyce sleep beneath my great domed reading room.",
+    hint: "On Kildare Street, beside Leinster House and facing the National Museum.",
+  },
+  "tara-street-station": {
+    name: "Tara Street Station",
+    emoji: "🚆",
+    clue: "A slim red-brick clock tower marks Dublin's busiest little station on the river's edge — thousands rush through me each day to catch the DART.",
+    hint: "On Tara Street, just south of the Liffey near Butt Bridge.",
+  },
+  "pearse-station": {
+    name: "Pearse Station",
+    emoji: "🚉",
+    clue: "Behind my Victorian front on Westland Row hides a vast iron-and-glass train shed. I carry the name of two brothers who gave their lives in 1916.",
+    hint: "The DART/rail station on Westland Row, just behind Trinity College.",
+  },
+  "padraig-pearse-pub": {
+    name: "The Pádraig Pearse",
+    emoji: "🍻",
+    clue: "A proper old Dublin pub on the long street that honours a patriot-poet — find me among the Georgian doors and student haunts of Pearse Street.",
+    hint: "The pub called The Pádraig Pearse, at 139 Pearse Street.",
+  },
+  "the-schoolhouse": {
+    name: "The Schoolhouse",
+    emoji: "🏫",
+    clue: "Built in 1861 to teach the children of the parish, I traded chalk for pints long ago — now my bar and terrace sit by the canal in leafy Ballsbridge.",
+    hint: "The Schoolhouse Hotel & Bar on Northumberland Road, near Mount Street Bridge.",
+  },
 };
 
-// One unique ordered route per team. Each begins in a different direction
-// out of Grand Canal Square and ends near O'Donoghue's. No landmark repeats
-// across any two routes.
+// One ordered route per team, each 5 stops out of Grand Canal Square ending
+// near O'Donoghue's. Routes start in different directions; some central
+// landmarks (e.g. Merrion Square) are deliberately shared across teams.
+// Comments show approx distance | walking time | total time (incl. photos).
 const ROUTES = {
-  1: ["samuel-beckett-bridge", "jeanie-johnston", "epic-chq", "custom-house", "famine-memorial", "sean-ocasey-bridge"],
-  2: ["rosie-hackett-bridge", "hapenny-bridge", "temple-bar-square", "bank-of-ireland", "molly-malone"],
-  3: ["science-gallery", "trinity-front-gate", "campanile", "sweny-pharmacy", "national-gallery", "oscar-wilde"],
-  4: ["waterways-box", "grand-canal-dock", "aviva-stadium", "mount-street-bridge", "peppercanister"],
-  5: ["huband-bridge", "kavanagh-statue", "wilton-terrace", "fitzwilliam-square", "number-29"],
-  6: ["bolands-mill", "grand-canal-locks", "merrion-square", "natural-history", "leinster-house"],
-  7: ["national-concert-hall", "iveagh-gardens", "newman-church", "rcsi", "fusiliers-arch"],
-  8: ["diving-bell", "windmill-lane", "grafton-street", "powerscourt-centre", "george-street-arcade"],
-  9: ["convention-centre", "national-museum", "mansion-house", "freemasons-hall", "phil-lynott"],
-  10: ["mv-cill-airne", "little-museum", "stephens-green", "shelbourne-hotel", "st-anns-church"],
+  1: ["samuel-beckett-bridge", "famine-memorial", "temple-bar-square", "national-library", "oscar-wilde"], // 3.5 km | 42 min | 68 min
+  2: ["convention-centre", "jeanie-johnston", "tara-street-station", "bank-of-ireland", "leinster-house"], // 3.0 km | 37 min | 62 min
+  3: ["mv-cill-airne", "custom-house", "hapenny-bridge", "grafton-street", "mansion-house"], // 3.6 km | 44 min | 69 min
+  4: ["diving-bell", "pearse-station", "trinity-front-gate", "powerscourt-centre", "shelbourne-hotel"], // 3.0 km | 37 min | 62 min
+  5: ["epic-chq", "padraig-pearse-pub", "merrion-square", "grafton-street", "phil-lynott"], // 3.1 km | 38 min | 63 min
+  6: ["windmill-lane", "merrion-square", "rcsi", "george-street-arcade", "little-museum"], // 3.2 km | 39 min | 64 min
+  7: ["bolands-mill", "mount-street-bridge", "merrion-square", "molly-malone", "national-museum"], // 3.3 km | 40 min | 65 min
+  8: ["grand-canal-dock", "the-schoolhouse", "wilton-terrace", "newman-church", "national-concert-hall"], // 3.1 km | 38 min | 63 min
+  9: ["grand-canal-locks", "merrion-square", "iveagh-gardens", "freemasons-hall", "stephens-green"], // 3.3 km | 40 min | 65 min
+  10: ["aviva-stadium", "the-schoolhouse", "fitzwilliam-square", "national-gallery", "natural-history"], // 3.5 km | 42 min | 67 min
 };
 
 const getRoute = (teamNum) => ROUTES[teamNum] || [];
@@ -1842,6 +1803,9 @@ function TeamGame({ teamNum, onBack }) {
               ⚠️ <strong>Every team member must be visible in the photo.</strong> Captains — make sure
               nobody's left out of shot!
             </div>
+            <p style={S.cardTextSmall}>
+              ⭐ Don't forget performance points are up for grabs for the best team photo, so get creative!
+            </p>
 
             {processingPhoto ? (
               <div style={{ ...S.cameraBtn, cursor: "default" }}>
