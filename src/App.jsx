@@ -1796,8 +1796,8 @@ function TeamGame({ teamNum, onBack }) {
             </h3>
             <p style={S.cardTextSmall}>
               {isFinalStep
-                ? "Worked out the final clue? Take one last team photo outside the door to finish the hunt."
-                : "Take a team photo at the location to unlock the next clue."}
+                ? "🔎 Worked out the final clue? Take one last team photo outside the door to finish the hunt."
+                : "🔎 Take a team photo at the location to unlock the next clue."}
             </p>
             <p style={S.cardTextSmall}>
               ⭐ Don't forget performance points are up for grabs for the best team photo, so get creative!
