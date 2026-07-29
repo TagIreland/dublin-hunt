@@ -1799,14 +1799,14 @@ function TeamGame({ teamNum, onBack }) {
                 ? "Worked out the final clue? Take one last team photo outside the door to finish the hunt."
                 : "Take a team photo at the location to unlock the next clue."}
             </p>
+            <p style={S.cardTextSmall}>
+              ⭐ Don't forget performance points are up for grabs for the best team photo, so get creative!
+            </p> 
             <div style={S.disclaimer}>
               ⚠️ <strong>Every team member must be visible in the photo.</strong> Captains — make sure
               nobody's left out of shot!
             </div>
-            <p style={S.cardTextSmall}>
-              ⭐ Don't forget performance points are up for grabs for the best team photo, so get creative!
-            </p>
-
+            
             {processingPhoto ? (
               <div style={{ ...S.cameraBtn, cursor: "default" }}>
                 <span style={{ fontSize: 36 }}>⏳</span>
